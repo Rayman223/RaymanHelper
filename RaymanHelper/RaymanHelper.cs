@@ -17,10 +17,8 @@ namespace cAlgo.Robots
     {
         // === STRATEGY PARAMETERS ===
         [Parameter("Min Lot", Group = "Money Management", DefaultValue = 0.01, MinValue = 0.01)]
-        [Parameter("Min Lot", Group = "Money Management", DefaultValue = 0.01, MinValue = 0.01)]
         public double MinLotSize { get; set; }
 
-        [Parameter("Fixed Lot", Group = "Money Management", DefaultValue = 0.01, MinValue = 0.01)]
         [Parameter("Fixed Lot", Group = "Money Management", DefaultValue = 0.01, MinValue = 0.01)]
         public double LotSize { get; set; }
 
@@ -28,39 +26,31 @@ namespace cAlgo.Robots
         public bool UseDynamicLot { get; set; }
 
         [Parameter("Risk Per Trade %", Group = "Money Management", DefaultValue = 2, MinValue = 0.1, MaxValue = 2)]
-        [Parameter("Risk Per Trade %", Group = "Money Management", DefaultValue = 2, MinValue = 0.1, MaxValue = 2)]
         public double RiskPercent { get; set; }
 
-        [Parameter("Max open positions", Group = "SL/TP", DefaultValue = 1, MaxValue = 10, MinValue = 1, Step = 1)]
         [Parameter("Max open positions", Group = "SL/TP", DefaultValue = 1, MaxValue = 10, MinValue = 1, Step = 1)]
         public int MaxOpenPosition { get; set; }
 
         [Parameter("Stop Loss (pips)", Group = "SL/TP", DefaultValue = 5, MaxValue = 100, MinValue = 1, Step = 1)]
-        [Parameter("Stop Loss (pips)", Group = "SL/TP", DefaultValue = 5, MaxValue = 100, MinValue = 1, Step = 1)]
         public int StopLossPips { get; set; }
 
-        [Parameter("Take Profit (pips)", Group = "SL/TP", DefaultValue = 5, MaxValue = 100, MinValue = 1, Step = 1)]
         [Parameter("Take Profit (pips)", Group = "SL/TP", DefaultValue = 5, MaxValue = 100, MinValue = 1, Step = 1)]
         public int TakeProfitPips { get; set; }
 
         // Nomber of pips for new SL after Break-even
         [Parameter("Trailing Stop (pips)", Group = "SL/TP", DefaultValue = 3, MaxValue = 100, MinValue = 1, Step = 1)]
-        [Parameter("Trailing Stop (pips)", Group = "SL/TP", DefaultValue = 3, MaxValue = 100, MinValue = 1, Step = 1)]
         public int TrailingStopPips { get; set; }
 
         // Number of pips when new SL on price
         [Parameter("Break-even Trigger (pips)", Group = "SL/TP", DefaultValue = 2.9, MaxValue = 20, MinValue = 1, Step = 1)]
-        [Parameter("Break-even Trigger (pips)", Group = "SL/TP", DefaultValue = 2.9, MaxValue = 20, MinValue = 1, Step = 1)]
         public int BreakEvenTriggerPips { get; set; }
         // Margin add to the price for the new SL
-        [Parameter("Break-even Margin (pips)", Group = "SL/TP", DefaultValue = 0.9, MinValue = 0, MaxValue = 100, Step = 0.1)]
         [Parameter("Break-even Margin (pips)", Group = "SL/TP", DefaultValue = 0.9, MinValue = 0, MaxValue = 100, Step = 0.1)]
         public int BreakEvenMarginPips { get; set; }
 
         [Parameter("Total loss", Group = "Risk", DefaultValue = 200, MaxValue = 1000, MinValue = 0, Step = 1)]
         public int MaxLoss { get; set; }
 
-        [Parameter("Max Allowed Spread (pips)", Group = "Settings", DefaultValue = 0.2, MaxValue = 0.7, MinValue = 0, Step = 0.1)]
         [Parameter("Max Allowed Spread (pips)", Group = "Settings", DefaultValue = 0.2, MaxValue = 0.7, MinValue = 0, Step = 0.1)]
         public double MaxAllowedSpread { get; set; }
 
@@ -80,9 +70,7 @@ namespace cAlgo.Robots
         private double GlobalBalance()
         {
             return Math.Floor(Account.Equity * 100) / 100;
-            return Math.Floor(Account.Equity * 100) / 100;
         }
-
 
 
         protected override void OnStart()
@@ -96,16 +84,7 @@ namespace cAlgo.Robots
             // s'abonner à l'événement de fermeture de position
             Positions.Closed += PositionsOnClosed;
 
-            // s'abonner à l'événement de fermeture de position
-            Positions.Closed += PositionsOnClosed;
-
             Log("Bot started successfully", "Info");
-        }
-
-        protected override void OnStop()
-        {
-            // se désabonner pour éviter les fuites / doubles appels
-            Positions.Closed -= PositionsOnClosed;
         }
 
         protected override void OnStop()
@@ -122,12 +101,9 @@ namespace cAlgo.Robots
             // Check new positions
             VerifyPositions();
 
-            // Check new positions
-            VerifyPositions();
-
             // Manage trailing stop and break-even adjustments
             ManageBreakEven();
-            //ManageTrailingStop();
+            ManageTrailingStop();
 
             double price = Bars.ClosePrices.LastValue;
             double pricePrev = Bars.ClosePrices.Last(1);
@@ -154,17 +130,7 @@ namespace cAlgo.Robots
 
             // Parcourt toutes les positions ouvertes pour le symbole courant
             foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
-            double epsilon = Symbol.PipSize; // tolérance pour les petits écarts d'arrondi
-
-            // Parcourt toutes les positions ouvertes pour le symbole courant
-            foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
             {
-                // Log sûr : on évite d'accéder à .Value s'il est null
-                string currentSL = position.StopLoss.HasValue ? position.StopLoss.Value.ToString("F5") : "null";
-                string currentTP = position.TakeProfit.HasValue ? position.TakeProfit.Value.ToString("F5") : "null";
-                //Log($"Verifying position {position.Id} | Symbol={position.SymbolName} | SL={currentSL} | TP={currentTP}", "Info");
-
-                // si déjà traité, on skip
                 // Log sûr : on évite d'accéder à .Value s'il est null
                 string currentSL = position.StopLoss.HasValue ? position.StopLoss.Value.ToString("F5") : "null";
                 string currentTP = position.TakeProfit.HasValue ? position.TakeProfit.Value.ToString("F5") : "null";
@@ -175,17 +141,14 @@ namespace cAlgo.Robots
                     continue;
 
                 // calcule SL/TP attendus (nullable si StopLossPips/TakeProfitPips <= 0)
-                // calcule SL/TP attendus (nullable si StopLossPips/TakeProfitPips <= 0)
                 double? expectedSL = null;
                 double? expectedTP = null;
 
                 if (StopLossPips > 0)
                 {
                     expectedSL = position.TradeType == TradeType.Buy
-                        ? position.EntryPrice - StopLossPips * Symbol.PipSize - GetSpreadInPips()
+                        ? position.EntryPrice - StopLossPips * Symbol.PipSize
                         : position.EntryPrice + StopLossPips * Symbol.PipSize;
-
-                    expectedSL = NormalizePrice(expectedSL.Value, position.TradeType);
 
                     expectedSL = NormalizePrice(expectedSL.Value, position.TradeType);
                 }
@@ -194,7 +157,7 @@ namespace cAlgo.Robots
                 {
                     expectedTP = position.TradeType == TradeType.Buy
                         ? position.EntryPrice + TakeProfitPips * Symbol.PipSize
-                        : position.EntryPrice - TakeProfitPips * Symbol.PipSize - GetSpreadInPips();
+                        : position.EntryPrice - TakeProfitPips * Symbol.PipSize;
 
                     expectedTP = NormalizePrice(expectedTP.Value, position.TradeType);
                 }
@@ -216,17 +179,16 @@ namespace cAlgo.Robots
                     try
                     {
                         ClosePosition(position);
-                        Log($"New position - Position {position.Id} closed immediately because market already reached expected SL {expectedSL.Value:F5}", "Warning");
+                        Log($"Position {position.Id} closed immediately because market already reached expected SL {expectedSL.Value:F5}", "Warning");
                     }
                     catch (Exception ex)
                     {
-                        Log($"New position - Failed to close position {position.Id}. Error: {ex.Message}", "Error");
+                        Log($"Failed to close position {position.Id}. Error: {ex.Message}", "Error");
                     }
 
                     checkedPositions.Add(position.Id);
                     continue; // passe à la position suivante
                 }
-
 
 
                 // détermine s'il faut mettre à jour SL et/ou TP
@@ -241,23 +203,19 @@ namespace cAlgo.Robots
                     string newSLStr = updateSL ? expectedSL.Value.ToString("F5") : currentSL;
                     string newTPStr = updateTP ? expectedTP.Value.ToString("F5") : currentTP;
 
-                    Log($"New position - Adjusted SL/TP for position {position.Id} | SL {currentSL} -> {newSLStr} | TP {currentTP} -> {newTPStr}", "Info");
+                    Log($"Adjusted SL/TP for position {position.Id} | SL {currentSL} -> {newSLStr} | TP {currentTP} -> {newTPStr}", "Info");
 
                     try
                     {
                         if (updateSL)
-                        {
-                            Log($"New position - Modifying SL for position {position.Id} to {expectedSL.Value:F5}", "Info");
                             position.ModifyStopLossPrice(expectedSL.Value); // on passe une valeur non-null
-                        }
-
 
                         if (updateTP)
                             position.ModifyTakeProfitPrice(expectedTP.Value); // on passe une valeur non-null
                     }
                     catch (Exception ex)
                     {
-                        Log($"New position - Failed to modify SL/TP for position {position.Id}. Error: {ex.Message}", "Error");
+                        Log($"Failed to modify SL/TP for position {position.Id}. Error: {ex.Message}", "Error");
                     }
                 }
 
@@ -265,26 +223,6 @@ namespace cAlgo.Robots
                 checkedPositions.Add(position.Id);
             }
         }
-
-        // Handler appelé à chaque position fermée
-        private void PositionsOnClosed(PositionClosedEventArgs args)
-        {
-            var pos = args?.Position;
-            if (pos == null)
-                return;
-
-            // retire l'id si présent (Remove renvoie true si supprimé)
-            if (checkedPositions.Remove(pos.Id))
-            {
-                Log($"Position {pos.Id} fermée — retirée de checkedPositions.", "Info");
-            }
-            else
-            {
-                // optionnel : log si l'id n'était pas dans le set
-                Log($"Position {pos.Id} fermée — id non présent dans checkedPositions.", "Debug");
-            }
-        }
-
 
         // Handler appelé à chaque position fermée
         private void PositionsOnClosed(PositionClosedEventArgs args)
@@ -333,7 +271,6 @@ namespace cAlgo.Robots
             double epsilon = Symbol.PipSize / 2;
 
             foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
-            foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
             {
                 double distance = position.TradeType == TradeType.Buy
                     ? Math.Round(Symbol.Bid - position.EntryPrice, 5)
@@ -343,18 +280,9 @@ namespace cAlgo.Robots
                 {
                     double newStopLoss = position.TradeType == TradeType.Buy
                         ? position.EntryPrice + (BreakEvenMarginPips * Symbol.PipSize)
-                        : position.EntryPrice + (BreakEvenMarginPips * Symbol.PipSize) + GetSpreadInPips();
-
-
-
+                        : position.EntryPrice - (BreakEvenMarginPips * Symbol.PipSize) - GetSpreadInPips();
                     // Normalize the new stop loss price
                     newStopLoss = NormalizePrice(newStopLoss, position.TradeType);
-
-                    //Log($"Distance reached for position {position.Id} : {distance} (Trigger: {BreakEvenTriggerPips * Symbol.PipSize})", "Debug");
-                    //Log($"Current SL at {position.StopLoss}", "Debug");
-                    //Log($"Entry price at {position.EntryPrice}", "Debug");
-                    //Log($"GetspeadinPips : {GetSpreadInPips()}", "Debug");
-                    //Log($"New SL calculated at {newStopLoss}", "Debug");
 
                     if ((position.TradeType == TradeType.Buy && newStopLoss > position.StopLoss + epsilon) ||
                         (position.TradeType == TradeType.Sell && newStopLoss < position.StopLoss - epsilon))
@@ -372,7 +300,6 @@ namespace cAlgo.Robots
             double epsilon = Symbol.PipSize / 2;
 
             foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
-            foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
             {
                 double currentPrice = position.TradeType == TradeType.Buy ? Symbol.Bid : Symbol.Ask;
                 double breakEvenPrice = position.TradeType == TradeType.Buy
@@ -385,7 +312,7 @@ namespace cAlgo.Robots
                 {
                     // Calcule le nouveau Stop Loss pour rester TrailingStopPips pips en dessous du prix actuel
                     double newStopLoss = position.TradeType == TradeType.Buy
-                        ? currentPrice - (TrailingStopPips * Symbol.PipSize)
+                        ? currentPrice - TrailingStopPips * Symbol.PipSize
                         : currentPrice + TrailingStopPips * Symbol.PipSize;
                     // Normalize the new stop loss price
                     newStopLoss = NormalizePrice(newStopLoss, position.TradeType);
@@ -438,7 +365,6 @@ namespace cAlgo.Robots
                 Log($"Closing positions to avoid swap fees. Current time: {currentTime}, Rollover time: {rolloverTime}, Time till close: {timeTillClose}.", "Warning");
 
                 // Close all positions opened by the bot
-                foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
                 foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
                 {
                     ClosePosition(position);
@@ -509,7 +435,6 @@ namespace cAlgo.Robots
         private void CloseProfitablePositions()
         {
             foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
-            foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
             {
                 if (position.NetProfit > 0)
                 {
@@ -521,13 +446,13 @@ namespace cAlgo.Robots
 
         private double GetSpreadInPips()
         {
+            // Symbol.Spread ?
             // make search because used with trailing stop
-            return NormalizePrice(Symbol.Ask - Symbol.Bid) / Symbol.PipSize;
-            //return Symbol.Spread / Symbol.PipSize;
+            return (Symbol.Ask - Symbol.Bid) / Symbol.PipSize;
         }
 
         // Normalize price to the nearest tick size
-        private double NormalizePrice(double price, TradeType tradeType = TradeType.Buy)
+        private double NormalizePrice(double price, TradeType tradeType)
         {
             double tickSize = Symbol.TickSize;
             double normalized;
