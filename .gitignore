@@ -1,0 +1,5 @@
+RaymanHelper.sln
+.vscode/tasks.json
+RaymanHelper/RaymanHelper.csproj
+RaymanHelper/bin/*
+RaymanHelper/obj/*
