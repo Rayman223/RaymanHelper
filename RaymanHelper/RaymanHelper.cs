@@ -89,9 +89,10 @@ namespace cAlgo.Robots
 
         protected override void OnTick()
         {
-            // Close positions before rollover
-            ClosePositionsBeforeRollover();
-
+            // Vérifie si le spread est acceptable avant de continuer
+            if (!IsSpreadAcceptable())
+                Log($"Spread too high ({GetSpreadInPips}), be careful !", "Warning");
+            
             // Check new positions
             VerifyPositions();
 
