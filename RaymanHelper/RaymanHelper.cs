@@ -23,9 +23,6 @@ namespace cAlgo.Robots
         [Parameter("Fixed Lot", Group = "Money Management", DefaultValue = 0.01, MinValue = 0.01)]
         public double LotSize { get; set; }
 
-        [Parameter("Use Dynamic Lot?", Group = "Money Management", DefaultValue = true)]
-        public bool UseDynamicLot { get; set; }
-
         [Parameter("Risk Per Trade %", Group = "Money Management", DefaultValue = 1, MinValue = 0.1, MaxValue = 2)]
         public double RiskPercent { get; set; }
 
@@ -46,17 +43,8 @@ namespace cAlgo.Robots
         [Parameter("Break-even Margin (pips)", Group = "SL/TP", DefaultValue = 1, MinValue = 0.1, Step = 0.1)]
         public int BreakEvenMarginPips { get; set; }
 
-        [Parameter("Total loss", Group = "Risk", DefaultValue = 200, MinValue = 0, Step = 1)]
-        public int MaxLoss { get; set; }
-
         [Parameter("Max Allowed Spread (pips)", Group = "Settings", DefaultValue = 0.2, MaxValue = 300, MinValue = 0, Step = 0.1)]
         public double MaxAllowedSpread { get; set; }
-
-        [Parameter("Rollover Hour (UTC)", Group = "Settings", DefaultValue = 20, MinValue = 0, MaxValue = 23)]
-        public int RolloverHour { get; set; }
-
-        [Parameter("Close Before Weekend (hours)", Group = "Filters", DefaultValue = 1, MinValue = 0, MaxValue = 2, Step = 1)]
-        public int CloseBeforeWeekendHours { get; set; }
 
         // === END STRATEGY PARAMETERS ===
 
@@ -110,22 +98,6 @@ namespace cAlgo.Robots
             // Manage trailing stop and break-even adjustments
             ManageBreakEven();
             ManageTrailingStop();
-
-            double price = Bars.ClosePrices.LastValue;
-            double pricePrev = Bars.ClosePrices.Last(1);
-            double GlobalBalanceValue = GlobalBalance();
-
-            if (GlobalBalanceValue <= -MaxLoss)
-            {
-                Log($"Maximum loss reached. No more positions will be opened ({GlobalBalanceValue} €).", "Warning");
-                // If no more positions are open, stop the robot
-                if (Positions.Count(p => p.SymbolName == SymbolName) == 0)
-                {
-                    Log("Robot stopped due to maximum loss.", "Warning");
-                    Stop();
-                }
-                return;
-            }
         }
 
         private void VerifyPositions()
@@ -310,56 +282,13 @@ namespace cAlgo.Robots
             }
         }
 
-        private bool StopOpenPositionsBeforeRollover()
-        {
-            TimeSpan currentTime = Server.Time.TimeOfDay;
-            TimeSpan rolloverTime = new TimeSpan(RolloverHour, 0, 0); // Manual user hour (UTC)
-            TimeSpan timeTillClose = Symbol.MarketHours.TimeTillClose(); // Automatic hour
-
-            // Check if within 30 minutes of manual or automatic rollover time
-            bool isNearManualRollover = currentTime >= rolloverTime - TimeSpan.FromMinutes(30) && currentTime < rolloverTime;
-            bool isNearAutomaticRollover = timeTillClose <= TimeSpan.FromMinutes(30) && timeTillClose > TimeSpan.Zero;
-
-            if (isNearManualRollover || isNearAutomaticRollover)
-            {
-                return true; // Prevent opening new positions
-            }
-
-            return false; // Allow opening new positions
-        }
-
-        private void ClosePositionsBeforeRollover()
-        {
-            /*
-                Does not work properly in backtest mode
-            */
-
-            // Combine manual and automatic rollover checks
-            TimeSpan rolloverTime = new TimeSpan(RolloverHour, 0, 0); // Manual user hour (UTC)
-            TimeSpan currentTime = Server.Time.TimeOfDay;
-            TimeSpan timeTillClose = Symbol.MarketHours.TimeTillClose(); // Automatic hour
-
-            // Check if within 5 minutes of manual or automatic rollover time
-            if ((currentTime >= rolloverTime - TimeSpan.FromMinutes(5) && currentTime <= rolloverTime) ||
-            (timeTillClose <= TimeSpan.FromMinutes(5) && timeTillClose > TimeSpan.Zero))
-            {
-                Log($"Closing positions to avoid swap fees. Current time: {currentTime}, Rollover time: {rolloverTime}, Time till close: {timeTillClose}.", "Warning");
-
-                // Close all positions opened by the bot
-                foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
-                {
-                    ClosePosition(position);
-                }
-            }
-        }
-
         private void ValidateParameters()
         {
             if (StopLossPips <= 0 || TakeProfitPips <= 0)
                 throw new ArgumentException("Stop Loss and Take Profit must be greater than 0.");
 
-            if (RiskPercent <= 0 || RiskPercent > 100)
-                throw new ArgumentException("Risk Percent must be between 0 and 100.");
+            if (RiskPercent <= 0 || RiskPercent > 2)
+                throw new ArgumentException("Risk Percent must be between 0 and 2.");
 
             if (BreakEvenMarginPips >= BreakEvenTriggerPips)
                 throw new ArgumentException("Break-even Margin must be minder than Break-even Trigger.");
