@@ -29,10 +29,10 @@ namespace cAlgo.Robots
         [Parameter("Risk Per Trade %", Group = "Money Management", DefaultValue = 1, MinValue = 0.1, MaxValue = 2)]
         public double RiskPercent { get; set; }
 
-        [Parameter("Stop Loss (pips)", Group = "SL/TP", DefaultValue = 5, MaxValue = 1000, MinValue = 1, Step = 1)]
+        [Parameter("Stop Loss (pips)", Group = "SL/TP", DefaultValue = 5, MinValue = 1, Step = 1)]
         public int StopLossPips { get; set; }
 
-        [Parameter("Take Profit (pips)", Group = "SL/TP", DefaultValue = 5, MaxValue = 1000, MinValue = 1, Step = 1)]
+        [Parameter("Take Profit (pips)", Group = "SL/TP", DefaultValue = 5, MinValue = 1, Step = 1)]
         public int TakeProfitPips { get; set; }
 
         // Nomber of pips for new SL after Break-even
@@ -40,13 +40,13 @@ namespace cAlgo.Robots
         public int TrailingStopPips { get; set; }
 
         // Number of pips when new SL on price
-        [Parameter("Break-even Trigger (pips)", Group = "SL/TP", DefaultValue = 2.9, MinValue = 1, Step = 1)]
+        [Parameter("Break-even Trigger (pips)", Group = "SL/TP", DefaultValue = 3, MinValue = 0.2, Step = 1)]
         public int BreakEvenTriggerPips { get; set; }
         // Margin add to the price for the new SL
-        [Parameter("Break-even Margin (pips)", Group = "SL/TP", DefaultValue = 0.9, MinValue = 0, Step = 0.1)]
+        [Parameter("Break-even Margin (pips)", Group = "SL/TP", DefaultValue = 1, MinValue = 0.1, Step = 0.1)]
         public int BreakEvenMarginPips { get; set; }
 
-        [Parameter("Total loss", Group = "Risk", DefaultValue = 200, MaxValue = 1000, MinValue = 0, Step = 1)]
+        [Parameter("Total loss", Group = "Risk", DefaultValue = 200, MinValue = 0, Step = 1)]
         public int MaxLoss { get; set; }
 
         [Parameter("Max Allowed Spread (pips)", Group = "Settings", DefaultValue = 0.2, MaxValue = 300, MinValue = 0, Step = 0.1)]
@@ -246,9 +246,6 @@ namespace cAlgo.Robots
             }
         }
 
-
-
-
         private void ManageBreakEven()
         {
             // epsilon to avoid frequent small adjustments
@@ -364,8 +361,8 @@ namespace cAlgo.Robots
             if (RiskPercent <= 0 || RiskPercent > 100)
                 throw new ArgumentException("Risk Percent must be between 0 and 100.");
 
-            if (BreakEvenMarginPips > BreakEvenTriggerPips)
-                throw new ArgumentException("Break-even Margin cannot be greater than Break-even Trigger.");
+            if (BreakEvenMarginPips >= BreakEvenTriggerPips)
+                throw new ArgumentException("Break-even Margin must be minder than Break-even Trigger.");
 
             if (BreakEvenMarginPips < 0)
                 throw new ArgumentException("Break-even Margin cannot be negative.");
