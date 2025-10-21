@@ -363,6 +363,15 @@ namespace cAlgo.Robots
 
             if (RiskPercent <= 0 || RiskPercent > 100)
                 throw new ArgumentException("Risk Percent must be between 0 and 100.");
+
+            if (BreakEvenMarginPips > BreakEvenTriggerPips)
+                throw new ArgumentException("Break-even Margin cannot be greater than Break-even Trigger.");
+
+            if (BreakEvenMarginPips < 0)
+                throw new ArgumentException("Break-even Margin cannot be negative.");
+
+            if (BreakEvenTriggerPips <= 0)
+                throw new ArgumentException("Break-even Trigger must be greater than 0.");
         }
 
         private void Log(string message, string level = "Info")
