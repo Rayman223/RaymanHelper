@@ -6,6 +6,7 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using cAlgo.Indicators;
 using cAlgo.API;
 using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
@@ -25,33 +26,30 @@ namespace cAlgo.Robots
         [Parameter("Use Dynamic Lot?", Group = "Money Management", DefaultValue = true)]
         public bool UseDynamicLot { get; set; }
 
-        [Parameter("Risk Per Trade %", Group = "Money Management", DefaultValue = 2, MinValue = 0.1, MaxValue = 2)]
+        [Parameter("Risk Per Trade %", Group = "Money Management", DefaultValue = 1, MinValue = 0.1, MaxValue = 2)]
         public double RiskPercent { get; set; }
 
-        [Parameter("Max open positions", Group = "SL/TP", DefaultValue = 1, MaxValue = 10, MinValue = 1, Step = 1)]
-        public int MaxOpenPosition { get; set; }
-
-        [Parameter("Stop Loss (pips)", Group = "SL/TP", DefaultValue = 5, MaxValue = 100, MinValue = 1, Step = 1)]
+        [Parameter("Stop Loss (pips)", Group = "SL/TP", DefaultValue = 5, MaxValue = 1000, MinValue = 1, Step = 1)]
         public int StopLossPips { get; set; }
 
-        [Parameter("Take Profit (pips)", Group = "SL/TP", DefaultValue = 5, MaxValue = 100, MinValue = 1, Step = 1)]
+        [Parameter("Take Profit (pips)", Group = "SL/TP", DefaultValue = 5, MaxValue = 1000, MinValue = 1, Step = 1)]
         public int TakeProfitPips { get; set; }
 
         // Nomber of pips for new SL after Break-even
-        [Parameter("Trailing Stop (pips)", Group = "SL/TP", DefaultValue = 3, MaxValue = 100, MinValue = 1, Step = 1)]
+        [Parameter("Trailing Stop (pips)", Group = "SL/TP", DefaultValue = 3, MinValue = 1, Step = 1)]
         public int TrailingStopPips { get; set; }
 
         // Number of pips when new SL on price
-        [Parameter("Break-even Trigger (pips)", Group = "SL/TP", DefaultValue = 2.9, MaxValue = 20, MinValue = 1, Step = 1)]
+        [Parameter("Break-even Trigger (pips)", Group = "SL/TP", DefaultValue = 2.9, MinValue = 1, Step = 1)]
         public int BreakEvenTriggerPips { get; set; }
         // Margin add to the price for the new SL
-        [Parameter("Break-even Margin (pips)", Group = "SL/TP", DefaultValue = 0.9, MinValue = 0, MaxValue = 100, Step = 0.1)]
+        [Parameter("Break-even Margin (pips)", Group = "SL/TP", DefaultValue = 0.9, MinValue = 0, Step = 0.1)]
         public int BreakEvenMarginPips { get; set; }
 
         [Parameter("Total loss", Group = "Risk", DefaultValue = 200, MaxValue = 1000, MinValue = 0, Step = 1)]
         public int MaxLoss { get; set; }
 
-        [Parameter("Max Allowed Spread (pips)", Group = "Settings", DefaultValue = 0.2, MaxValue = 0.7, MinValue = 0, Step = 0.1)]
+        [Parameter("Max Allowed Spread (pips)", Group = "Settings", DefaultValue = 0.2, MaxValue = 300, MinValue = 0, Step = 0.1)]
         public double MaxAllowedSpread { get; set; }
 
         [Parameter("Rollover Hour (UTC)", Group = "Settings", DefaultValue = 20, MinValue = 0, MaxValue = 23)]
@@ -65,6 +63,8 @@ namespace cAlgo.Robots
         // HashSet pour garder trace des positions déjà vérifiées
         private HashSet<int> checkedPositions = new HashSet<int>();
 
+        private RaymanHelperIndicator _helper;
+
         private string lastLogMessage = string.Empty;
         private string lastLogSource = string.Empty;
         private double GlobalBalance()
@@ -72,9 +72,15 @@ namespace cAlgo.Robots
             return Math.Floor(Account.Equity * 100) / 100;
         }
 
-
         protected override void OnStart()
         {
+            _helper = Indicators.GetIndicator<RaymanHelperIndicator>(
+                MinLotSize,   // MinLotSize
+                RiskPercent,    // RiskPercent
+                StopLossPips,      // StopLossPips
+                MaxAllowedSpread     // MaxAllowedSpread
+            );
+
             // Display market opening and closing hours
             DisplayMarketHours();
 
@@ -122,8 +128,6 @@ namespace cAlgo.Robots
             }
         }
 
-
-
         private void VerifyPositions()
         {
             double epsilon = Symbol.PipSize; // tolérance pour les petits écarts d'arrondi
@@ -134,7 +138,6 @@ namespace cAlgo.Robots
                 // Log sûr : on évite d'accéder à .Value s'il est null
                 string currentSL = position.StopLoss.HasValue ? position.StopLoss.Value.ToString("F5") : "null";
                 string currentTP = position.TakeProfit.HasValue ? position.TakeProfit.Value.ToString("F5") : "null";
-                //Log($"Verifying position {position.Id} | Symbol={position.SymbolName} | SL={currentSL} | TP={currentTP}", "Info");
 
                 // si déjà traité, on skip
                 if (checkedPositions.Contains(position.Id))
@@ -245,25 +248,6 @@ namespace cAlgo.Robots
 
 
 
-        private double GetDynamicVolume()
-        {
-            double riskAmount = Account.Balance * (RiskPercent / 100);
-            double pipValue = Symbol.PipValue;
-
-            if (StopLossPips <= 0 || pipValue <= 0 || MinLotSize <= 0)
-                throw new ArgumentException("StopLossPips, PipValue or MinLotSize is invalid.");
-
-            double volumeInLots = riskAmount / (StopLossPips * pipValue);
-            volumeInLots = Math.Round(volumeInLots, 2);
-
-            if (volumeInLots < MinLotSize)
-            {
-                Log($"Calculated volume ({volumeInLots}) is less than the minimal size lot ({MinLotSize}). Utilisation of the minimal size lot.", "Warning");
-                volumeInLots = MinLotSize;
-            }
-
-            return Symbol.QuantityToVolumeInUnits(volumeInLots);
-        }
 
         private void ManageBreakEven()
         {
@@ -273,14 +257,14 @@ namespace cAlgo.Robots
             foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
             {
                 double distance = position.TradeType == TradeType.Buy
-                    ? Math.Round(Symbol.Bid - position.EntryPrice, 5)
-                    : Math.Round(position.EntryPrice - Symbol.Ask, 5);
+                    ? NormalizePrice(Symbol.Bid - position.EntryPrice, position.TradeType)
+                    : NormalizePrice(position.EntryPrice - Symbol.Ask, position.TradeType);
 
                 if (distance >= BreakEvenTriggerPips * Symbol.PipSize)
                 {
                     double newStopLoss = position.TradeType == TradeType.Buy
                         ? position.EntryPrice + (BreakEvenMarginPips * Symbol.PipSize)
-                        : position.EntryPrice - (BreakEvenMarginPips * Symbol.PipSize) - GetSpreadInPips();
+                        : position.EntryPrice - (BreakEvenMarginPips * Symbol.PipSize); //- GetSpreadInPips() ??
                     // Normalize the new stop loss price
                     newStopLoss = NormalizePrice(newStopLoss, position.TradeType);
 
@@ -303,8 +287,8 @@ namespace cAlgo.Robots
             {
                 double currentPrice = position.TradeType == TradeType.Buy ? Symbol.Bid : Symbol.Ask;
                 double breakEvenPrice = position.TradeType == TradeType.Buy
-                    ? position.EntryPrice + BreakEvenMarginPips * Symbol.PipSize
-                    : position.EntryPrice - (BreakEvenMarginPips * Symbol.PipSize) - Symbol.Spread;
+                    ? position.EntryPrice + (BreakEvenMarginPips * Symbol.PipSize)
+                    : position.EntryPrice - (BreakEvenMarginPips * Symbol.PipSize);
 
                 // Vérifie si le prix a dépassé le niveau de Break-even
                 if ((position.TradeType == TradeType.Buy && currentPrice > breakEvenPrice) ||
@@ -376,9 +360,6 @@ namespace cAlgo.Robots
         {
             if (StopLossPips <= 0 || TakeProfitPips <= 0)
                 throw new ArgumentException("Stop Loss and Take Profit must be greater than 0.");
-
-            if (MaxOpenPosition <= 0)
-                throw new ArgumentException("The maximum number of open positions must be greater than 0.");
 
             if (RiskPercent <= 0 || RiskPercent > 100)
                 throw new ArgumentException("Risk Percent must be between 0 and 100.");
