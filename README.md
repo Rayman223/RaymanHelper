@@ -1,6 +1,6 @@
 # RaymanHelper (cTrader / cAlgo)
 
-Trading assistant for cTrader (cAlgo Robot) — provided version: 0.3
+## Trading assistant for cTrader (cAlgo Robot) — provided version: 0.3
 
 Summary
 - Simple robot to automatically manage SL/TP, break‑even and trailing stop.

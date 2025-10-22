@@ -10,8 +10,8 @@
     "StopLossPips": 50,
     "TakeProfitPips": 50,
     "TrailingStopPips": 2.0,
-    "BreakEvenTriggerPips": 2.0,
-    "BreakEvenMarginPips": 1.0,
+    "BreakEvenTriggerPips": 2.2,
+    "BreakEvenMarginPips": 1.2,
     "MaxAllowedSpread": 0.4
   }
 }
