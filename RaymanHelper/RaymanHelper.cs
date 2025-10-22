@@ -232,11 +232,6 @@ namespace cAlgo.Robots
             {
                 Log($"Position {pos.Id} fermée — retirée de checkedPositions.", "Info");
             }
-            else
-            {
-                // optionnel : log si l'id n'était pas dans le set
-                Log($"Position {pos.Id} fermée — id non présent dans checkedPositions.", "Debug");
-            }
         }
 
         private void ManageBreakEven()
@@ -280,16 +275,16 @@ namespace cAlgo.Robots
                 double currentPrice = position.TradeType == TradeType.Buy ? Symbol.Bid : Symbol.Ask;
 
                 double breakEvenPrice = position.TradeType == TradeType.Buy
-                    ? position.EntryPrice + (BreakEvenMarginPips * Symbol.PipSize)
-                    : position.EntryPrice - (BreakEvenMarginPips * Symbol.PipSize);
-                
+                    ? position.EntryPrice + (BreakEvenTriggerPips * Symbol.PipSize)
+                    : position.EntryPrice - (BreakEvenTriggerPips * Symbol.PipSize);
+
                 // normalize the price
-                currentPrice = NormalizePrice(currentPrice, position.TradeType);
+                //currentPrice = NormalizePrice(currentPrice, position.TradeType);
                 breakEvenPrice = NormalizePrice(breakEvenPrice, position.TradeType);
 
                 // Vérifie si le prix a dépassé le niveau de Break-even
-                if ((position.TradeType == TradeType.Buy && currentPrice > breakEvenPrice) ||
-                    (position.TradeType == TradeType.Sell && currentPrice < breakEvenPrice))
+                if ((position.TradeType == TradeType.Buy && currentPrice > breakEvenPrice + epsilon) ||
+                    (position.TradeType == TradeType.Sell && currentPrice < breakEvenPrice - epsilon))
                 {
                     // Calcule le nouveau Stop Loss pour rester TrailingStopPips pips en dessous du prix actuel
                     double newStopLoss = position.TradeType == TradeType.Buy
