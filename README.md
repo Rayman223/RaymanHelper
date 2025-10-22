@@ -38,6 +38,12 @@ Implementation notes
 - UpdateChartInfo is called on every tick; consider throttling (e.g. once per second) to reduce overhead.
 - ValidateParameters throws ArgumentException for inconsistent parameters; these errors are shown on the chart.
 
+Trailing stop & break-even behavior
+- `Break-even Trigger`: when a position moves in your favor by this number of pips from the entry price, the bot will attempt to move the Stop Loss to lock profit. It sets the SL to the entry price plus `Break-even Margin` for BUY positions, or entry minus `Break-even Margin` for SELL positions.
+- `Break-even Margin`: number of pips to add to the entry when moving SL to break-even. A positive margin places the SL into profit by that many pips (providing a buffer above/below entry).
+- `Trailing Stop`: once conditions are met (typically after the break-even trigger), the bot follows the price and moves the SL so it remains `Trailing Stop` away from the current price (SL = currentPrice - `Trailing Stop` for BUY, SL = currentPrice + `Trailing Stop` for SELL).
+- Notes: all pip math uses Symbol.PipSize and NormalizePrice to respect the instrument tick size. The bot only updates SL if the new value is an improvement (it avoids worsening an existing SL) and applies small epsilons to prevent frequent tiny modifications.
+
 Suggested improvements
 - Add throttling for UpdateChartInfo.
 - Allow StopLossPips == 0 and/or TakeProfitPips == 0 to disable either (adjust MinValue accordingly).
