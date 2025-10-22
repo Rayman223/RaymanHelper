@@ -8,7 +8,6 @@ using System.Linq;
 using System.Collections.Generic;
 using cAlgo.Indicators;
 using cAlgo.API;
-using cAlgo.API.Indicators;
 using cAlgo.API.Internals;
 
 namespace cAlgo.Robots
@@ -64,13 +63,6 @@ namespace cAlgo.Robots
 
         protected override void OnStart()
         {
-            _helper = Indicators.GetIndicator<RaymanHelperIndicator>(
-                MinLotSize,   // MinLotSize
-                RiskPercent,    // RiskPercent
-                StopLossPips,      // StopLossPips
-                MaxAllowedSpread     // MaxAllowedSpread
-            );
-
             // Display market opening and closing hours
             DisplayMarketHours();
 
