@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| Helper cTrader - Version 0.2                                     |
+//| Helper cTrader - Version 0.3                                     |
 //| By Rayman223                                                     |
 //+------------------------------------------------------------------+
 
@@ -33,15 +33,15 @@ namespace cAlgo.Robots
         public int TakeProfitPips { get; set; }
 
         // Nomber of pips for new SL after Break-even
-        [Parameter("Trailing Stop (pips)", Group = "SL/TP", DefaultValue = 3, MinValue = 1, Step = 1)]
-        public int TrailingStopPips { get; set; }
+        [Parameter("Trailing Stop (pips)", Group = "SL/TP", DefaultValue = 3, MinValue = 1, Step = 0.1)]
+        public double TrailingStopPips { get; set; }
 
         // Number of pips when new SL on price
-        [Parameter("Break-even Trigger (pips)", Group = "SL/TP", DefaultValue = 3, MinValue = 0.2, Step = 1)]
-        public int BreakEvenTriggerPips { get; set; }
+        [Parameter("Break-even Trigger (pips)", Group = "SL/TP", DefaultValue = 3, MinValue = 0.2, Step = 0.1)]
+        public double BreakEvenTriggerPips { get; set; }
         // Margin add to the price for the new SL
         [Parameter("Break-even Margin (pips)", Group = "SL/TP", DefaultValue = 1, MinValue = 0.1, Step = 0.1)]
-        public int BreakEvenMarginPips { get; set; }
+        public double BreakEvenMarginPips { get; set; }
 
         [Parameter("Max Allowed Spread (pips)", Group = "Settings", DefaultValue = 0.2, MaxValue = 300, MinValue = 0, Step = 0.1)]
         public double MaxAllowedSpread { get; set; }
@@ -247,14 +247,16 @@ namespace cAlgo.Robots
             foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
             {
                 double distance = position.TradeType == TradeType.Buy
-                    ? NormalizePrice(Symbol.Bid - position.EntryPrice, position.TradeType)
-                    : NormalizePrice(position.EntryPrice - Symbol.Ask, position.TradeType);
+                    ? Symbol.Bid - position.EntryPrice
+                    : position.EntryPrice - Symbol.Ask;
+                // Normalize the distance
+                distance = NormalizePrice(distance, position.TradeType);
 
                 if (distance >= BreakEvenTriggerPips * Symbol.PipSize)
                 {
                     double newStopLoss = position.TradeType == TradeType.Buy
                         ? position.EntryPrice + (BreakEvenMarginPips * Symbol.PipSize)
-                        : position.EntryPrice - (BreakEvenMarginPips * Symbol.PipSize); //- GetSpreadInPips() ??
+                        : position.EntryPrice - (BreakEvenMarginPips * Symbol.PipSize);
                     // Normalize the new stop loss price
                     newStopLoss = NormalizePrice(newStopLoss, position.TradeType);
 
@@ -276,9 +278,14 @@ namespace cAlgo.Robots
             foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
             {
                 double currentPrice = position.TradeType == TradeType.Buy ? Symbol.Bid : Symbol.Ask;
+
                 double breakEvenPrice = position.TradeType == TradeType.Buy
                     ? position.EntryPrice + (BreakEvenMarginPips * Symbol.PipSize)
                     : position.EntryPrice - (BreakEvenMarginPips * Symbol.PipSize);
+                
+                // normalize the price
+                currentPrice = NormalizePrice(currentPrice, position.TradeType);
+                breakEvenPrice = NormalizePrice(breakEvenPrice, position.TradeType);
 
                 // Vérifie si le prix a dépassé le niveau de Break-even
                 if ((position.TradeType == TradeType.Buy && currentPrice > breakEvenPrice) ||
@@ -312,7 +319,7 @@ namespace cAlgo.Robots
                 throw new ArgumentException("Risk Percent must be between 0 and 2.");
 
             if (BreakEvenMarginPips >= BreakEvenTriggerPips)
-                throw new ArgumentException("Break-even Margin must be minder than Break-even Trigger.");
+                throw new ArgumentException("Break-even Margin must be less than Break-even Trigger.");
 
             if (BreakEvenMarginPips < 0)
                 throw new ArgumentException("Break-even Margin cannot be negative.");
@@ -371,9 +378,7 @@ namespace cAlgo.Robots
 
         private double GetSpreadInPips()
         {
-            // Symbol.Spread ?
-            // make search because used with trailing stop
-            return (Symbol.Ask - Symbol.Bid) / Symbol.PipSize;
+            return NormalizePrice(Symbol.Spread / Symbol.PipSize);
         }
 
         // Chart display helpers
@@ -412,12 +417,12 @@ namespace cAlgo.Robots
             Color color = Color.White;
             if (_lastError != null) color = Color.OrangeRed;
             else if (spreadTooHigh) color = Color.Red;
-            
+
             Chart.DrawStaticText(InfoTextId, info, VerticalAlignment.Top, HorizontalAlignment.Left, color);
         }
 
         // Normalize price to the nearest tick size
-        private double NormalizePrice(double price, TradeType tradeType)
+        private double NormalizePrice(double price, TradeType tradeType = TradeType.Buy)
         {
             double tickSize = Symbol.TickSize;
             double normalized;

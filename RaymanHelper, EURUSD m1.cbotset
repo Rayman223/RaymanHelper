@@ -9,9 +9,9 @@
     "RiskPercent": 2.0,
     "StopLossPips": 50,
     "TakeProfitPips": 50,
-    "TrailingStopPips": 4,
-    "BreakEvenTriggerPips": 3,
-    "BreakEvenMarginPips": 2,
+    "TrailingStopPips": 3.0,
+    "BreakEvenTriggerPips": 3.0,
+    "BreakEvenMarginPips": 2.0,
     "MaxAllowedSpread": 0.4
   }
 }
