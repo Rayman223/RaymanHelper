@@ -12,6 +12,6 @@
     "TrailingStopPips": 4,
     "BreakEvenTriggerPips": 3,
     "BreakEvenMarginPips": 2,
-    "MaxAllowedSpread": 0.2
+    "MaxAllowedSpread": 0.4
   }
 }

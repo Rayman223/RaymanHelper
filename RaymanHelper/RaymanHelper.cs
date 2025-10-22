@@ -60,6 +60,8 @@ namespace cAlgo.Robots
             return Math.Floor(Account.Equity * 100) / 100;
         }
 
+        private string _lastError = null;
+
         protected override void OnStart()
         {
             _helper = Indicators.GetIndicator<RaymanHelperIndicator>(
@@ -73,15 +75,27 @@ namespace cAlgo.Robots
             DisplayMarketHours();
 
             // Validate parameters
-            ValidateParameters();
+            try
+            {
+                ValidateParameters();
+                _lastError = null;
+            }
+            catch (ArgumentException ex)
+            {
+                _lastError = ex.Message;
+            }
+            catch (Exception ex)
+            {
+                _lastError = "Unexpected error: " + ex.Message;
+            }
+
+            // affiche informations sur le chart
+            UpdateChartInfo();
 
             // s'abonner à l'événement de fermeture de position
             Positions.Closed += PositionsOnClosed;
 
             Log("Bot started successfully", "Info");
-
-            // affiche informations sur le chart
-            UpdateChartInfo();
         }
 
         protected override void OnStop()
@@ -96,18 +110,15 @@ namespace cAlgo.Robots
             if (!IsSpreadAcceptable())
                 Log($"Spread too high ({GetSpreadInPips}), be careful !", "Warning");
 
+            // mise à jour des infos visibles sur le chart
+            UpdateChartInfo();
+
             // Check new positions
             VerifyPositions();
 
             // Manage trailing stop and break-even adjustments
             ManageBreakEven();
             ManageTrailingStop();
-        }
-
-        protected override void OnBar()
-        {
-            // mise à jour des infos visibles sur le chart
-            UpdateChartInfo();
         }
 
         private void VerifyPositions()
@@ -371,22 +382,38 @@ namespace cAlgo.Robots
         private void UpdateChartInfo()
         {
             // Compose le texte à afficher
+            double spread = GetSpreadInPips();
+            bool spreadTooHigh = Math.Round(spread, 2) > Math.Round(MaxAllowedSpread, 2);
+
+            string spreadLine = spreadTooHigh
+                ? $"Spread: {spread:F2} pips  ==> Exceed tolerance ({MaxAllowedSpread:F2} pips)"
+                : $"Spread: {spread:F2} pips";
+
             string info =
-                $"Balance: {GlobalBalance():F2} {Account.Currency}\n" +
-                $"Spread: {GetSpreadInPips():F2} pips\n" +
+                $"Time: {Server.Time:yyyy-MM-dd HH:mm:ss}\n" +
+                $"Closetime: {Symbol.MarketHours.TimeTillClose():hh\\:mm\\:ss}\n" +
+                $"Balance: {GlobalBalance():F2} {Account.Asset.Name}\n" +
+                $"{spreadLine}\n" +
                 $"SL: {StopLossPips} pips  TP: {TakeProfitPips} pips\n" +
-                $"Trailing: {TrailingStopPips} pips  BE trigger: {BreakEvenTriggerPips} pips";
+                $"BE trigger: {BreakEvenTriggerPips} pips | Set SL: {BreakEvenMarginPips} pips | Trailing: {TrailingStopPips} pips\n" +
+                $"Open Positions: {Positions.Count(p => p.SymbolName == SymbolName)}\n";
+
+            if (_lastError != null)
+                info += $"\nERROR: {_lastError}";
 
             // Supprime l'ancien objet s'il existe (évite les duplicatas)
             try
             {
-                ChartObjects.RemoveObject(InfoTextId);
+                Chart.RemoveObject(InfoTextId);
             }
             catch { /* ignore si non trouvé */ }
 
-            // Dessine le texte en haut à gauche du chart
-            // Utilise StaticPosition pour position fixe indépendamment des coordonnées
-            ChartObjects.DrawText(InfoTextId, info, StaticPosition.TopLeft, Colors.White);
+            // Dessine le texte en haut à gauche du chart, en rouge si spread trop élevé
+            Color color = Color.White;
+            if (_lastError != null) color = Color.OrangeRed;
+            else if (spreadTooHigh) color = Color.Red;
+            
+            Chart.DrawStaticText(InfoTextId, info, VerticalAlignment.Top, HorizontalAlignment.Left, color);
         }
 
         // Normalize price to the nearest tick size
