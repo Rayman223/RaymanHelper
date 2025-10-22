@@ -79,6 +79,9 @@ namespace cAlgo.Robots
             Positions.Closed += PositionsOnClosed;
 
             Log("Bot started successfully", "Info");
+
+            // affiche informations sur le chart
+            UpdateChartInfo();
         }
 
         protected override void OnStop()
@@ -92,13 +95,19 @@ namespace cAlgo.Robots
             // Vérifie si le spread est acceptable avant de continuer
             if (!IsSpreadAcceptable())
                 Log($"Spread too high ({GetSpreadInPips}), be careful !", "Warning");
-            
+
             // Check new positions
             VerifyPositions();
 
             // Manage trailing stop and break-even adjustments
             ManageBreakEven();
             ManageTrailingStop();
+        }
+
+        protected override void OnBar()
+        {
+            // mise à jour des infos visibles sur le chart
+            UpdateChartInfo();
         }
 
         private void VerifyPositions()
@@ -349,23 +358,35 @@ namespace cAlgo.Robots
             return true;
         }
 
-        private void CloseProfitablePositions()
-        {
-            foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
-            {
-                if (position.NetProfit > 0)
-                {
-                    ClosePosition(position);
-                    Log($"position closed in profit : {position.TradeType} | {position.SymbolName} | {position.NetProfit:F2} €", "Info");
-                }
-            }
-        }
-
         private double GetSpreadInPips()
         {
             // Symbol.Spread ?
             // make search because used with trailing stop
             return (Symbol.Ask - Symbol.Bid) / Symbol.PipSize;
+        }
+
+        // Chart display helpers
+        private const string InfoTextId = "RaymanHelper_Info";
+
+        private void UpdateChartInfo()
+        {
+            // Compose le texte à afficher
+            string info =
+                $"Balance: {GlobalBalance():F2} {Account.Currency}\n" +
+                $"Spread: {GetSpreadInPips():F2} pips\n" +
+                $"SL: {StopLossPips} pips  TP: {TakeProfitPips} pips\n" +
+                $"Trailing: {TrailingStopPips} pips  BE trigger: {BreakEvenTriggerPips} pips";
+
+            // Supprime l'ancien objet s'il existe (évite les duplicatas)
+            try
+            {
+                ChartObjects.RemoveObject(InfoTextId);
+            }
+            catch { /* ignore si non trouvé */ }
+
+            // Dessine le texte en haut à gauche du chart
+            // Utilise StaticPosition pour position fixe indépendamment des coordonnées
+            ChartObjects.DrawText(InfoTextId, info, StaticPosition.TopLeft, Colors.White);
         }
 
         // Normalize price to the nearest tick size
