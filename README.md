@@ -2,7 +2,7 @@
 
 ## Trading assistant for cTrader (cAlgo Robot)
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPLv3-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.3-green.svg)]()
 
 
