@@ -22,14 +22,14 @@ namespace cAlgo.Robots
         [Parameter("Fixed Lot", Group = "Money Management", DefaultValue = 0.01, MinValue = 0.01)]
         public double LotSize { get; set; }
 
-        [Parameter("Risk Per Trade %", Group = "Money Management", DefaultValue = 1, MinValue = 0.1, MaxValue = 2)]
+        [Parameter("Risk Per Trade %", Group = "Money Management", DefaultValue = 1, MinValue = 0.1, MaxValue = 2, Step = 0.1)]
         public double RiskPercent { get; set; }
 
         [Parameter("Stop Loss (pips)", Group = "SL/TP", DefaultValue = 50, MinValue = 1, Step = 0.1)]
-        public int StopLossPips { get; set; }
+        public double StopLossPips { get; set; }
 
         [Parameter("Take Profit (pips)", Group = "SL/TP", DefaultValue = 50, MinValue = 1, Step = 0.1)]
-        public int TakeProfitPips { get; set; }
+        public double TakeProfitPips { get; set; }
 
         // Nomber of pips for new SL after Break-even
         [Parameter("Trailing Stop (pips)", Group = "SL/TP", DefaultValue = 2, MinValue = 1, Step = 0.1)]
