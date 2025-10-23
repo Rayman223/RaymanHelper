@@ -25,24 +25,24 @@ namespace cAlgo.Robots
         [Parameter("Risk Per Trade %", Group = "Money Management", DefaultValue = 1, MinValue = 0.1, MaxValue = 2)]
         public double RiskPercent { get; set; }
 
-        [Parameter("Stop Loss (pips)", Group = "SL/TP", DefaultValue = 5, MinValue = 1, Step = 1)]
+        [Parameter("Stop Loss (pips)", Group = "SL/TP", DefaultValue = 50, MinValue = 1, Step = 0.1)]
         public int StopLossPips { get; set; }
 
-        [Parameter("Take Profit (pips)", Group = "SL/TP", DefaultValue = 5, MinValue = 1, Step = 1)]
+        [Parameter("Take Profit (pips)", Group = "SL/TP", DefaultValue = 50, MinValue = 1, Step = 0.1)]
         public int TakeProfitPips { get; set; }
 
         // Nomber of pips for new SL after Break-even
-        [Parameter("Trailing Stop (pips)", Group = "SL/TP", DefaultValue = 3, MinValue = 1, Step = 0.1)]
+        [Parameter("Trailing Stop (pips)", Group = "SL/TP", DefaultValue = 2, MinValue = 1, Step = 0.1)]
         public double TrailingStopPips { get; set; }
 
         // Number of pips when new SL on price
-        [Parameter("Break-even Trigger (pips)", Group = "SL/TP", DefaultValue = 3, MinValue = 0.2, Step = 0.1)]
+        [Parameter("Break-even Trigger (pips)", Group = "SL/TP", DefaultValue = 2.2, MinValue = 0.2, Step = 0.1)]
         public double BreakEvenTriggerPips { get; set; }
         // Margin add to the price for the new SL
-        [Parameter("Break-even Margin (pips)", Group = "SL/TP", DefaultValue = 1, MinValue = 0.1, Step = 0.1)]
+        [Parameter("Break-even Margin (pips)", Group = "SL/TP", DefaultValue = 1.2, MinValue = 0.1, Step = 0.1)]
         public double BreakEvenMarginPips { get; set; }
 
-        [Parameter("Max Allowed Spread (pips)", Group = "Settings", DefaultValue = 0.2, MaxValue = 300, MinValue = 0, Step = 0.1)]
+        [Parameter("Max Allowed Spread (pips)", Group = "Settings", DefaultValue = 0.4, MinValue = 0, Step = 0.1)]
         public double MaxAllowedSpread { get; set; }
 
         // === END STRATEGY PARAMETERS ===
