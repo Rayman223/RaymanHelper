@@ -25,12 +25,14 @@
 - Min Lot: 0.01
 - Fixed Lot: 0.01
 - Risk Per Trade %: 1 (range 0.1 — 2)
-- Stop Loss (pips): 5
-- Take Profit (pips): 5
-- Trailing Stop (pips): 3
-- Break-even Trigger (pips): 3
-- Break-even Margin (pips): 1
-- Max Allowed Spread (pips): 0.2
+- Stop Loss (pips): 50
+- Take Profit (pips): 50
+- Trailing Stop (pips): 2
+- Break-even Trigger (pips): 2.2
+- Break-even Margin (pips): 1.2
+- Max Allowed Spread (pips): 0.4
+
+*Note: These values and the RaymanHelper EURUSD m1.cbotset file are intended for testing purposes only.*
 
 
 ### Installation and usage
