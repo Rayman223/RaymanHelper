@@ -45,6 +45,9 @@ namespace cAlgo.Robots
         [Parameter("Max Allowed Spread (pips)", Group = "Settings", DefaultValue = 0.4, MinValue = 0, Step = 0.1)]
         public double MaxAllowedSpread { get; set; }
 
+        [Parameter("Gap Minimum (pips)", DefaultValue = 5, MinValue = 0, Step = 1)]
+        public int MinGapPips { get; set; }
+
         // === END STRATEGY PARAMETERS ===
 
         // HashSet pour garder trace des positions déjà vérifiées
@@ -112,6 +115,24 @@ namespace cAlgo.Robots
             ManageBreakEven();
             ManageTrailingStop();
         }
+
+        protected override void OnBar()
+        {
+            // Detect price gap
+            if (Bars.Count < 2)
+                return;
+    
+            var previousClose = Bars.ClosePrices.Last(1);
+            var currentOpen = Bars.OpenPrices.Last(0);
+    
+            var gap = Math.Abs(currentOpen - previousClose);
+    
+            if (gap >= MinGapPips * Symbol.PipSize)
+            {
+                Print("Gap detected : {0} pips between {1} et {2}", gap / Symbol.PipSize, previousClose, currentOpen);
+            }
+        }
+
 
         private void VerifyPositions()
         {
