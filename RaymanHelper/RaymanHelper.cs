@@ -316,7 +316,7 @@ namespace cAlgo.Robots
 
                     double? currentSL = position.StopLoss;
                     bool shouldUpdate = false;
-                    
+
                     // New Stop Loss should be more favorable than both current SL and break-even price
                     if (!currentSL.HasValue)
                     {
@@ -465,11 +465,64 @@ namespace cAlgo.Robots
                 marketTimeLine = "Market hours: N/A";
             }
 
+            // Compute lot size needed for RiskPercent given StopLossPips
+            string riskLine;
+            try
+            {
+                if (StopLossPips <= 0)
+                {
+                    riskLine = "Risk calculation: SL disabled (StopLossPips <= 0)";
+                }
+                else if (Symbol.PipValue <= 0)
+                {
+                    riskLine = "Risk calculation: Symbol.PipValue unavailable";
+                }
+                else
+                {
+                    // Amount we are willing to risk (in account currency)
+                    double riskAmount = Math.Floor(GlobalBalance() * (RiskPercent / 100) * 100) / 100;
+
+                    // Loss per 1 lot if SL is hit
+                    double lossPerLot = StopLossPips * Symbol.PipValue;
+
+                    if (lossPerLot <= 0)
+                    {
+                        riskLine = "Risk calculation: invalid loss per lot";
+                    }
+                    else
+                    {
+                        // raw required lots (may be fractional)
+                        double requiredLots = riskAmount / lossPerLot;
+
+                        // round down to nearest multiple of MinLotSize to avoid exceeding risk
+                        double roundedLots = 0;
+                        if (requiredLots > 0 && MinLotSize > 0)
+                        {
+                            roundedLots = Math.Floor(requiredLots / MinLotSize) * MinLotSize;
+                            // Ensure at least MinLotSize if floor gives 0 but requiredLots >= MinLotSize
+                            if (roundedLots < MinLotSize && requiredLots >= MinLotSize)
+                                roundedLots = MinLotSize;
+                        }
+
+                        // Prepare display with 4 decimals for precision
+                        riskLine =
+                            $"Risk {RiskPercent:F1}% -> riskAmt {riskAmount:F2} {Account.Asset.Name} | " +
+                            $"Lossperlot {lossPerLot:F5} {Account.Asset.Name} | " +
+                            $"rawLots {requiredLots:F4} | roundedLots {roundedLots:F4} (min {MinLotSize})";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                riskLine = "Risk calculation error: " + ex.Message;
+            }
+
             string info =
                 $"Time: {Server.Time:yyyy-MM-dd HH:mm:ss}\n" +
                 $"{marketTimeLine}\n" +
                 $"Balance: {GlobalBalance():F2} {Account.Asset.Name}\n" +
                 $"{spreadLine}\n" +
+                $"{riskLine}\n" +
                 $"SL: {StopLossPips} pips  TP: {TakeProfitPips} pips\n" +
                 $"BE trigger: {BreakEvenTriggerPips} pips | Set SL: {BreakEvenMarginPips} pips | Trailing: {TrailingStopPips} pips\n" +
                 $"Open Positions: {Positions.Count(p => p.SymbolName == SymbolName)}\n";
