@@ -5,6 +5,7 @@
 
 using System;
 using System.Linq;
+using System.Net.Http;
 using System.Collections.Generic;
 using cAlgo.Indicators;
 using cAlgo.API;
@@ -12,7 +13,7 @@ using cAlgo.API.Internals;
 
 namespace cAlgo.Robots
 {
-    [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.None)]
+    [Robot(TimeZone = TimeZones.UTC, AccessRights = AccessRights.FullAccess)]
     public class RaymanHelper : Robot
     {
         // === STRATEGY PARAMETERS ===
@@ -48,6 +49,13 @@ namespace cAlgo.Robots
         // Opening delay after market open (minutes) ---
         [Parameter("Opening Delay (minutes)", Group = "Filters", DefaultValue = 30, MinValue = 0, Step = 1)]
         public int OpeningDelayMinutes { get; set; }
+
+        // Telegram notifications
+        [Parameter("Telegram Bot Token", Group = "Notifications", DefaultValue = "")]
+        public string TelegramBotToken { get; set; }
+
+        [Parameter("Telegram Chat Id", Group = "Notifications", DefaultValue = "")]
+        public string TelegramChatId { get; set; }
 
         // === END STRATEGY PARAMETERS ===
 
@@ -88,6 +96,42 @@ namespace cAlgo.Robots
             // s'abonner à l'événement de fermeture de position
             Positions.Closed += PositionsOnClosed;
 
+            // Send Telegram notification on start
+            if (!string.IsNullOrWhiteSpace(TelegramBotToken) && !string.IsNullOrWhiteSpace(TelegramChatId))
+            {
+                string marketTimeLine;
+                try
+                {
+                    var timeTillOpen = Symbol.MarketHours.TimeTillOpen();
+                    if (timeTillOpen > TimeSpan.Zero)
+                    {
+                        marketTimeLine = $"Opentime: {timeTillOpen:hh\\:mm\\:ss}"; // marché fermé -> affiche ouverture
+                    }
+                    else
+                    {
+                        var timeTillClose = Symbol.MarketHours.TimeTillClose();
+                        marketTimeLine = $"Closetime: {timeTillClose:hh\\:mm\\:ss}"; // marché ouvert -> affiche fermeture
+                    }
+                }
+                catch
+                {
+                    marketTimeLine = "Market hours: N/A";
+                }
+
+                var startMessage =
+                    $"RaymanHelper démarré.\n" +
+                    $"{marketTimeLine}\n" +
+                    $"Symbol: {SymbolName}\n" +
+                    $"Balance: {GlobalBalance():F2} {Account.Asset.Name}\n" +
+                    $"Equity: {Account.Equity:F2} {Account.Asset.Name}\n" +
+                    $"Spread: {GetSpreadInPips():F2} pips (Max allowed: {MaxAllowedSpread:F2} pips)\n" +
+                    $"SL: {StopLossPips} pips | TP: {TakeProfitPips} pips\n" +
+                    $"Trailing: {TrailingStopPips} pips | Break-even trigger: {BreakEvenTriggerPips} pips | Break-even margin: {BreakEvenMarginPips} pips\n" +
+                    $"Opening delay: {OpeningDelayMinutes} minutes\n" +
+                    $"Open positions: {Positions.Count(p => p.SymbolName == SymbolName)}";
+
+                SendTelegram(startMessage);
+            }
             Log("Bot started successfully", "Info");
         }
 
@@ -316,7 +360,7 @@ namespace cAlgo.Robots
 
                     double? currentSL = position.StopLoss;
                     bool shouldUpdate = false;
-                    
+
                     // New Stop Loss should be more favorable than both current SL and break-even price
                     if (!currentSL.HasValue)
                     {
@@ -384,6 +428,44 @@ namespace cAlgo.Robots
             lastLogMessage = formattedMessage;
             lastLogSource = logSource;
             Print(formattedMessage);
+
+            // Send Telegram notification only for errors (avoid spamming)
+            if (string.Equals(level, "Error", StringComparison.OrdinalIgnoreCase))
+            {
+                SendTelegram(formattedMessage);
+            }
+        }
+
+        private void SendTelegram(string text)
+        {
+            if (string.IsNullOrWhiteSpace(TelegramBotToken) || string.IsNullOrWhiteSpace(TelegramChatId))
+                return;
+
+            try
+            {
+                using (var client = new HttpClient())
+                {
+                    var url = $"https://api.telegram.org/bot{TelegramBotToken}/sendMessage";
+                    var content = new FormUrlEncodedContent(new[]
+                    {
+                        new KeyValuePair<string, string>("chat_id", TelegramChatId),
+                        new KeyValuePair<string, string>("text", text),
+                        new KeyValuePair<string, string>("parse_mode", "Markdown")
+                    });
+
+                    var resp = client.PostAsync(url, content).Result;
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        // Print directly to avoid recursion with Log -> SendTelegram
+                        Print($"[Warning]: Telegram send failed: {resp.StatusCode}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Print directly to avoid recursion with Log -> SendTelegram
+                Print($"[Error]: Telegram error: {ex.Message}");
+            }
         }
 
         private bool AreMessagesSimilar(string currentMessage, string lastMessage)
