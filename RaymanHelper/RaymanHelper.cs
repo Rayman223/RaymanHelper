@@ -45,6 +45,10 @@ namespace cAlgo.Robots
         [Parameter("Max Allowed Spread (pips)", Group = "Settings", DefaultValue = 0.4, MinValue = 0, Step = 0.1)]
         public double MaxAllowedSpread { get; set; }
 
+        // Opening delay after market open (minutes) ---
+        [Parameter("Opening Delay (minutes)", Group = "Filters", DefaultValue = 30, MinValue = 0, Step = 1)]
+        public int OpeningDelayMinutes { get; set; }
+
         // === END STRATEGY PARAMETERS ===
 
         // HashSet pour garder trace des positions déjà vérifiées
@@ -378,9 +382,31 @@ namespace cAlgo.Robots
                 ? $"Spread: {spread:F2} pips  ==> Exceed tolerance ({MaxAllowedSpread:F2} pips)"
                 : $"Spread: {spread:F2} pips";
 
+            // Affiche seulement l'information pertinente :
+            // - si le marché est fermé => affiche le temps restant jusqu'à l'ouverture (Opentime)
+            // - si le marché est ouvert => affiche le temps restant jusqu'à la fermeture (Closetime)
+            string marketTimeLine;
+            try
+            {
+                var timeTillOpen = Symbol.MarketHours.TimeTillOpen();
+                if (timeTillOpen > TimeSpan.Zero)
+                {
+                    marketTimeLine = $"Opentime: {timeTillOpen:hh\\:mm\\:ss}"; // marché fermé -> affiche ouverture
+                }
+                else
+                {
+                    var timeTillClose = Symbol.MarketHours.TimeTillClose();
+                    marketTimeLine = $"Closetime: {timeTillClose:hh\\:mm\\:ss}"; // marché ouvert -> affiche fermeture
+                }
+            }
+            catch
+            {
+                marketTimeLine = "Market hours: N/A";
+            }
+
             string info =
                 $"Time: {Server.Time:yyyy-MM-dd HH:mm:ss}\n" +
-                $"Closetime: {Symbol.MarketHours.TimeTillClose():hh\\:mm\\:ss}\n" +
+                $"{marketTimeLine}\n" +
                 $"Balance: {GlobalBalance():F2} {Account.Asset.Name}\n" +
                 $"{spreadLine}\n" +
                 $"SL: {StopLossPips} pips  TP: {TakeProfitPips} pips\n" +
@@ -418,6 +444,34 @@ namespace cAlgo.Robots
 
             // arrondi final au bon nombre de décimales du symbole
             return Math.Round(normalized, Symbol.Digits);
+        }
+
+        /// Check if market is within the opening delay period
+        private bool IsWithinOpeningDelay()
+        {
+            try
+            {
+                // TimeTillOpen() retourne le TimeSpan jusqu'à la prochaine ouverture.
+                // Si > 0 => marché fermé (on considère qu'on ne doit pas ouvrir de position)
+                TimeSpan timeTillOpen = Symbol.MarketHours.TimeTillOpen();
+
+                if (timeTillOpen > TimeSpan.Zero)
+                {
+                    // Le marché n'est pas encore ouvert => interdire l'ouverture
+                    return true;
+                }
+
+                // Si TimeTillOpen <= 0 alors le marché est ouvert ; timeSinceOpen = -timeTillOpen
+                TimeSpan timeSinceOpen = -timeTillOpen;
+
+                return timeSinceOpen < TimeSpan.FromMinutes(OpeningDelayMinutes);
+            }
+            catch (Exception ex)
+            {
+                // En cas d'erreur d'API, retourner false pour ne pas bloquer inutilement.
+                Log($"IsWithinOpeningDelay error: {ex.Message}", "Debug");
+                return false;
+            }
         }
     }
 }
