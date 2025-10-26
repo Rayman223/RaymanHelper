@@ -377,12 +377,12 @@ namespace cAlgo.Robots
         private readonly TimeSpan ChartUpdateInterval = TimeSpan.FromSeconds(1);
         private void UpdateChartInfo()
         {
-            // throttle
+            // Throttle
             if (DateTime.UtcNow - _lastChartUpdate < ChartUpdateInterval)
                 return;
             _lastChartUpdate = DateTime.UtcNow;
 
-            // Compose le texte à afficher
+            // Compose the text to display
             double spread = GetSpreadInPips();
             bool spreadTooHigh = Math.Round(spread, 2) > Math.Round(MaxAllowedSpread, 2);
 
@@ -424,14 +424,14 @@ namespace cAlgo.Robots
             if (_lastError != null)
                 info += $"\nERROR: {_lastError}";
 
-            // Supprime l'ancien objet s'il existe (évite les duplicatas)
+            // Delete old object if exists (avoid duplicates)
             try
             {
                 Chart.RemoveObject(InfoTextId);
             }
-            catch { /* ignore si non trouvé */ }
+            catch { }
 
-            // Dessine le texte en haut à gauche du chart, en rouge si spread trop élevé
+            // Draw in orange-red if there is an error otherwise in red if spread too high, else white
             Color color = Color.White;
             if (_lastError != null) color = Color.OrangeRed;
             else if (spreadTooHigh) color = Color.Red;
