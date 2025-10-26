@@ -229,7 +229,7 @@ namespace cAlgo.Robots
 
         private void ManageBreakEven()
         {
-            // epsilon to avoid frequent small adjustments
+            // Epsilon to avoid frequent small adjustments
             double epsilon = Symbol.PipSize / 2;
 
             foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
@@ -248,11 +248,37 @@ namespace cAlgo.Robots
                     // Normalize the new stop loss price
                     newStopLoss = NormalizePrice(newStopLoss, position.TradeType);
 
-                    if ((position.TradeType == TradeType.Buy && newStopLoss > position.StopLoss + epsilon) ||
-                        (position.TradeType == TradeType.Sell && newStopLoss < position.StopLoss - epsilon))
+                    bool shouldUpdate = false;
+                    double? currentSL = position.StopLoss;
+                    // Apply the new Stop Loss only if it's more favorable
+                    // or if there is no Stop Loss set
+                    if (!currentSL.HasValue)
                     {
-                        Log($"Break-even adjusted | distance={distance} | New SL={newStopLoss} | Entry={position.EntryPrice}", "Info");
-                        position.ModifyStopLossPrice(newStopLoss);
+                        shouldUpdate = true;
+                    }
+                    else
+                    {
+                        if (position.TradeType == TradeType.Buy)
+                            shouldUpdate = newStopLoss > currentSL.Value + epsilon;
+                        else
+                            shouldUpdate = newStopLoss < currentSL.Value - epsilon;
+                    }
+
+                    // Apply the new Stop Loss if needed
+                    if (shouldUpdate)
+                    {
+                        try
+                        {
+                            // Log the adjustment
+                            Log($"Break-even adjusted | distance={distance:F5} | New SL={newStopLoss:F5} | Entry={position.EntryPrice:F5}", "Info");
+                            // Modify the Stop Loss
+                            position.ModifyStopLossPrice(newStopLoss);
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log the error
+                            Log($"ManageBreakEven modify failed: {ex.Message}", "Error");
+                        }
                     }
                 }
             }
