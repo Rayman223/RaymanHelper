@@ -430,6 +430,9 @@ namespace cAlgo.Robots
         private readonly TimeSpan ChartUpdateInterval = TimeSpan.FromSeconds(1);
         private void UpdateChartInfo()
         {
+            double finalRiskAmount = 0.0;
+            double finalGainAmount = 0.0;
+
             // Throttle
             if (DateTime.UtcNow - _lastChartUpdate < ChartUpdateInterval)
                 return;
@@ -483,7 +486,32 @@ namespace cAlgo.Robots
                     double riskAmount = Math.Floor(GlobalBalance() * (RiskPercent / 100) * 100) / 100;
 
                     // Loss per 1 lot if SL is hit
-                    double lossPerLot = StopLossPips * Symbol.PipValue;
+                    // Robust calculation: try to detect if Symbol.PipValue is per-unit (very small) or already per-lot.
+                    double lossPerLot;
+                    try
+                    {
+                        // Fallback contract units per lot
+                        double unitsPerLot = Symbol.LotSize > 0 ? Symbol.LotSize : 100000;
+
+                        // If Symbol.PipValue is very small (< ~1) we assume it's per 1 unit and multiply by unitsPerLot.
+                        // Otherwise we assume it's already the pip value per lot.
+                        double pipValuePerLot;
+                        if (Symbol.PipValue > 0 && Symbol.PipValue < 1.0)
+                            pipValuePerLot = Symbol.PipValue * unitsPerLot;
+                        else if (Symbol.PipValue > 0)
+                            pipValuePerLot = Symbol.PipValue;
+                        else
+                            // Fallback using pip size * units per lot (gives value in quote currency)
+                            pipValuePerLot = Symbol.PipSize * unitsPerLot;
+
+                        // NOTE: pipValuePerLot now is expressed in the symbol quote currency (or account currency if API already converted).
+                        // If Account.Currency != Symbol.QuoteCurrency you may want to convert pipValuePerLot to account currency here.
+                        lossPerLot = StopLossPips * pipValuePerLot;
+                    }
+                    catch
+                    {
+                        lossPerLot = 0;
+                    }
 
                     if (lossPerLot <= 0)
                     {
@@ -491,24 +519,29 @@ namespace cAlgo.Robots
                     }
                     else
                     {
-                        // raw required lots (may be fractional)
+                        // Raw required lots (may be fractional)
                         double requiredLots = riskAmount / lossPerLot;
 
-                        // round down to nearest multiple of MinLotSize to avoid exceeding risk
-                        double roundedLots = 0;
+                        // Round down to nearest multiple of MinLotSize to avoid exceeding risk
+                        double roundedLots = MinLotSize;
                         if (requiredLots > 0 && MinLotSize > 0)
                         {
-                            roundedLots = Math.Floor(requiredLots / MinLotSize) * MinLotSize;
-                            // Ensure at least MinLotSize if floor gives 0 but requiredLots >= MinLotSize
-                            if (roundedLots < MinLotSize && requiredLots >= MinLotSize)
+                            // Floor to nearest MinLotSize multiple with 2 decimals
+                            roundedLots = Math.Floor(requiredLots * 100) / 100;
+
+                            if (roundedLots <= MinLotSize)
                                 roundedLots = MinLotSize;
                         }
 
-                        // Prepare display with 4 decimals for precision
+                        // Final risk amount with rounded lots
+                        finalRiskAmount = roundedLots * lossPerLot;
+                        // Final gain amount with rounded lots
+                        finalGainAmount = roundedLots * TakeProfitPips * (lossPerLot / StopLossPips);
+
+                        // Prepare display with 2 decimals for precision
                         riskLine =
-                            $"Risk {RiskPercent:F1}% -> riskAmt {riskAmount:F2} {Account.Asset.Name} | " +
-                            $"Lossperlot {lossPerLot:F5} {Account.Asset.Name} | " +
-                            $"rawLots {requiredLots:F4} | roundedLots {roundedLots:F4} (min {MinLotSize})";
+                            $"Risk: {RiskPercent:F1}% = {riskAmount:F2} {Account.Asset.Name}" +
+                            $"roundedLots: {roundedLots:F2} (min {MinLotSize})";
                     }
                 }
             }
@@ -523,7 +556,7 @@ namespace cAlgo.Robots
                 $"Balance: {GlobalBalance():F2} {Account.Asset.Name}\n" +
                 $"{spreadLine}\n" +
                 $"{riskLine}\n" +
-                $"SL: {StopLossPips} pips  TP: {TakeProfitPips} pips\n" +
+                $"SL: {StopLossPips} pips ({finalRiskAmount:F2} {Account.Asset.Name}) | TP: {TakeProfitPips} pips ({finalGainAmount:F2} {Account.Asset.Name})\n" +
                 $"BE trigger: {BreakEvenTriggerPips} pips | Set SL: {BreakEvenMarginPips} pips | Trailing: {TrailingStopPips} pips\n" +
                 $"Open Positions: {Positions.Count(p => p.SymbolName == SymbolName)}\n";
 
