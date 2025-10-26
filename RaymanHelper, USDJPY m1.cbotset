@@ -12,6 +12,7 @@
     "TrailingStopPips": 2.0,
     "BreakEvenTriggerPips": 2.5,
     "BreakEvenMarginPips": 1.3,
-    "MaxAllowedSpread": 0.3
+    "MaxAllowedSpread": 0.3,
+    "OpeningDelayMinutes": 30
   }
 }
