@@ -49,9 +49,6 @@ namespace cAlgo.Robots
 
         // HashSet pour garder trace des positions déjà vérifiées
         private HashSet<int> checkedPositions = new HashSet<int>();
-
-        private RaymanHelperIndicator _helper;
-
         private string lastLogMessage = string.Empty;
         private string lastLogSource = string.Empty;
         private double GlobalBalance()
