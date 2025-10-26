@@ -1,5 +1,5 @@
 //+------------------------------------------------------------------+
-//| Helper cTrader - Version 0.4                                     |
+//| Trading Helper cTrader - Version 0.4                             |
 //| By Rayman223                                                     |
 //+------------------------------------------------------------------+
 
@@ -372,8 +372,16 @@ namespace cAlgo.Robots
         // Chart display helpers
         private const string InfoTextId = "RaymanHelper_Info";
 
+        // Throttle chart updates
+        private DateTime _lastChartUpdate = DateTime.MinValue;
+        private readonly TimeSpan ChartUpdateInterval = TimeSpan.FromSeconds(1);
         private void UpdateChartInfo()
         {
+            // throttle
+            if (DateTime.UtcNow - _lastChartUpdate < ChartUpdateInterval)
+                return;
+            _lastChartUpdate = DateTime.UtcNow;
+
             // Compose le texte à afficher
             double spread = GetSpreadInPips();
             bool spreadTooHigh = Math.Round(spread, 2) > Math.Round(MaxAllowedSpread, 2);
@@ -382,9 +390,9 @@ namespace cAlgo.Robots
                 ? $"Spread: {spread:F2} pips  ==> Exceed tolerance ({MaxAllowedSpread:F2} pips)"
                 : $"Spread: {spread:F2} pips";
 
-            // Affiche seulement l'information pertinente :
-            // - si le marché est fermé => affiche le temps restant jusqu'à l'ouverture (Opentime)
-            // - si le marché est ouvert => affiche le temps restant jusqu'à la fermeture (Closetime)
+            // show only relevant market time info:
+            // - if market closed => show time till open (Opentime)
+            // - if market opened => show time till close (Closetime)
             string marketTimeLine;
             try
             {
