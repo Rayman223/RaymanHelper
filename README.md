@@ -19,6 +19,7 @@
 - Spread control: refuses to act if spread exceeds MaxAllowedSpread and shows an alert.
 - Chart info panel showing time, spread, balance, parameters and validation errors.
 - Log filtering to reduce noise (similar-message detection).
+- Telegram Notifications. Add the bot: [t.me/RaymanHelperBot](https://t.me/RaymanHelperBot)
 
 
 ### Exposed parameters (default values)
