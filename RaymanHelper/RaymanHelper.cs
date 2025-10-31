@@ -495,7 +495,7 @@ namespace cAlgo.Robots
                         // Prepare display with 2 decimals for precision
                         riskLine =
                             $"Risk: {RiskPercent:F1}% = {riskAmount:F2} {Account.Asset.Name}" +
-                            $" | roundedLots: {roundedLots:F2} (min {MinLotSize})";
+                            $" | RoundedLots: {roundedLots:F2} (min {MinLotSize})";
                     }
                 }
             }
