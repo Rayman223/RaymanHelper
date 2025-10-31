@@ -109,9 +109,8 @@ namespace cAlgo.Robots
             // Check new positions
             VerifyPositions();
 
-            // Manage trailing stop and break-even adjustments
-            ManageBreakEven();
-            ManageTrailingStop();
+            // Manage trailing stop and break-even
+            ManageStopLogic();
         }
 
         private void VerifyPositions()
@@ -227,125 +226,81 @@ namespace cAlgo.Robots
             }
         }
 
-        private void ManageBreakEven()
+        private void ManageStopLogic()
         {
-            // Epsilon to avoid frequent small adjustments
             double epsilon = Symbol.PipSize / 2;
-
-            foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
-            {
-                double distance = position.TradeType == TradeType.Buy
-                    ? Symbol.Bid - position.EntryPrice
-                    : position.EntryPrice - Symbol.Ask;
-                // Normalize the distance
-                distance = NormalizePrice(distance, position.TradeType);
-
-                if (distance >= BreakEvenTriggerPips * Symbol.PipSize)
-                {
-                    double newStopLoss = position.TradeType == TradeType.Buy
-                        ? position.EntryPrice + (BreakEvenMarginPips * Symbol.PipSize)
-                        : position.EntryPrice - (BreakEvenMarginPips * Symbol.PipSize);
-                    // Normalize the new stop loss price
-                    newStopLoss = NormalizePrice(newStopLoss, position.TradeType);
-
-                    bool shouldUpdate = false;
-                    double? currentSL = position.StopLoss;
-                    // Apply the new Stop Loss only if it's more favorable
-                    // or if there is no Stop Loss set
-                    if (!currentSL.HasValue)
-                    {
-                        shouldUpdate = true;
-                    }
-                    else
-                    {
-                        if (position.TradeType == TradeType.Buy)
-                            shouldUpdate = newStopLoss > currentSL.Value + epsilon;
-                        else
-                            shouldUpdate = newStopLoss < currentSL.Value - epsilon;
-                    }
-
-                    // Apply the new Stop Loss if needed
-                    if (shouldUpdate)
-                    {
-                        try
-                        {
-                            // Log the adjustment
-                            Log($"Break-even adjusted | distance={distance:F5} | New SL={newStopLoss:F5} | Entry={position.EntryPrice:F5}", "Info");
-                            // Modify the Stop Loss
-                            position.ModifyStopLossPrice(newStopLoss);
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log the error
-                            Log($"ManageBreakEven modify failed: {ex.Message}", "Error");
-                        }
-                    }
-                }
-            }
-        }
-
-        private void ManageTrailingStop()
-        {
-            // Epsilon to avoid frequent small adjustments
-            double epsilon = Symbol.PipSize / 2;
-
+            double breakEvenTrigger = BreakEvenTriggerPips * Symbol.PipSize;
+            double breakEvenMargin = BreakEvenMarginPips * Symbol.PipSize;
+            double trailingDistance = TrailingStopPips * Symbol.PipSize;
+        
             foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
             {
                 double currentPrice = position.TradeType == TradeType.Buy ? Symbol.Bid : Symbol.Ask;
-
-                double breakEvenPrice = position.TradeType == TradeType.Buy
-                    ? position.EntryPrice + (BreakEvenTriggerPips * Symbol.PipSize)
-                    : position.EntryPrice - (BreakEvenTriggerPips * Symbol.PipSize);
-
-                // Normalize the price
-                // CurrentPrice = NormalizePrice(currentPrice, position.TradeType);
-                breakEvenPrice = NormalizePrice(breakEvenPrice, position.TradeType);
-
-                // Vérifie si le prix a dépassé le niveau de Break-even
-                if ((position.TradeType == TradeType.Buy && currentPrice > breakEvenPrice + epsilon) ||
-                    (position.TradeType == TradeType.Sell && currentPrice < breakEvenPrice - epsilon))
+                double entryPrice = position.EntryPrice;
+                double? currentSL = position.StopLoss;
+        
+                // Distance du prix actuel à l'entrée
+                double distanceFromEntry = position.TradeType == TradeType.Buy
+                    ? currentPrice - entryPrice
+                    : entryPrice - currentPrice;
+        
+                // Vérifie si le prix a atteint le seuil de break-even
+                bool isPastBreakEven = distanceFromEntry >= breakEvenTrigger;
+        
+                if (!isPastBreakEven)
+                    continue;
+        
+                // Détermine le SL cible : break-even ou trailing
+                double targetSL;
+        
+                if (!currentSL.HasValue || (
+                    position.TradeType == TradeType.Buy && currentSL.Value < entryPrice + breakEvenMargin - epsilon) ||
+                    (position.TradeType == TradeType.Sell && currentSL.Value > entryPrice - breakEvenMargin + epsilon))
                 {
-                    // Calcule le nouveau Stop Loss pour rester TrailingStopPips pips en dessous du prix actuel
-                    double newStopLoss = position.TradeType == TradeType.Buy
-                        ? currentPrice - TrailingStopPips * Symbol.PipSize
-                        : currentPrice + TrailingStopPips * Symbol.PipSize;
-                    // Normalize the new stop loss price
-                    newStopLoss = NormalizePrice(newStopLoss, position.TradeType);
-
-                    double CurrentPips = Math.Round((newStopLoss - position.EntryPrice) / Symbol.PipSize, 2);
-
-                    double? currentSL = position.StopLoss;
-                    bool shouldUpdate = false;
-
-                    // New Stop Loss should be more favorable than both current SL and break-even price
-                    if (!currentSL.HasValue)
+                    // Cas 1 : appliquer le break-even
+                    targetSL = position.TradeType == TradeType.Buy
+                        ? entryPrice + breakEvenMargin
+                        : entryPrice - breakEvenMargin;
+        
+                    Log($"[BreakEven] Déclenché | SL={targetSL:F5} | Entry={entryPrice:F5} | Price={currentPrice:F5}", "Info");
+                }
+                else
+                {
+                    // Cas 2 : appliquer le trailing stop
+                    targetSL = position.TradeType == TradeType.Buy
+                        ? currentPrice - trailingDistance
+                        : currentPrice + trailingDistance;
+        
+                    // Ne pas descendre sous le break-even
+                    double minSL = position.TradeType == TradeType.Buy
+                        ? entryPrice + breakEvenMargin
+                        : entryPrice - breakEvenMargin;
+        
+                    if ((position.TradeType == TradeType.Buy && targetSL < minSL) ||
+                        (position.TradeType == TradeType.Sell && targetSL > minSL))
+                        continue;
+        
+                    Log($"[Trailing] En cours | SL={targetSL:F5} | Entry={entryPrice:F5} | Price={currentPrice:F5}", "Info");
+                }
+        
+                targetSL = NormalizePrice(targetSL, position.TradeType);
+        
+                // Vérifie si le SL doit être mis à jour
+                bool shouldUpdate = !currentSL.HasValue ||
+                    (position.TradeType == TradeType.Buy && targetSL > currentSL.Value + epsilon) ||
+                    (position.TradeType == TradeType.Sell && targetSL < currentSL.Value - epsilon);
+        
+                if (shouldUpdate)
+                {
+                    try
                     {
-                        if (position.TradeType == TradeType.Buy)
-                            shouldUpdate = newStopLoss > breakEvenPrice;
-                        else
-                            shouldUpdate = newStopLoss < breakEvenPrice;
+                        double pipsGain = Math.Round((targetSL - entryPrice) / Symbol.PipSize, 2);
+                        Log($"[SL Update] Nouveau SL={targetSL:F5} | Gain={pipsGain} pips", "Info");
+                        position.ModifyStopLossPrice(targetSL);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        if (position.TradeType == TradeType.Buy)
-                            shouldUpdate = newStopLoss > currentSL.Value + epsilon && newStopLoss > breakEvenPrice;
-                        else
-                            shouldUpdate = newStopLoss < currentSL.Value - epsilon && newStopLoss < breakEvenPrice;
-                    }
-
-                    // Apply the new Stop Loss if needed
-                    if (shouldUpdate)
-                    {
-                        try
-                        {
-                            double currentPips = Math.Round((newStopLoss - position.EntryPrice) / Symbol.PipSize, 2);
-                            Log($"Trailing Stop adjusted | New SL={newStopLoss:F5} | Price={currentPrice:F5} | Entry={position.EntryPrice:F5} | Pips={currentPips}", "Info");
-                            position.ModifyStopLossPrice(newStopLoss);
-                        }
-                        catch (Exception ex)
-                        {
-                            Log($"ManageTrailingStop modify failed: {ex.Message}", "Error");
-                        }
+                        Log($"[Erreur] Échec modification SL : {ex.Message}", "Error");
                     }
                 }
             }
