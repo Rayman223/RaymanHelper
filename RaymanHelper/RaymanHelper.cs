@@ -55,6 +55,7 @@ namespace cAlgo.Robots
         private HashSet<int> checkedPositions = new HashSet<int>();
         private string lastLogMessage = string.Empty;
         private string lastLogSource = string.Empty;
+        private const string InfoTextId = "RaymanHelper_Info";
         private double GlobalBalance()
         {
             return Math.Floor(Account.Equity * 100) / 100;
@@ -232,27 +233,27 @@ namespace cAlgo.Robots
             double breakEvenTrigger = BreakEvenTriggerPips * Symbol.PipSize;
             double breakEvenMargin = BreakEvenMarginPips * Symbol.PipSize;
             double trailingDistance = TrailingStopPips * Symbol.PipSize;
-        
+
             foreach (var position in Positions.Where(p => p.SymbolName == SymbolName))
             {
                 double currentPrice = position.TradeType == TradeType.Buy ? Symbol.Bid : Symbol.Ask;
                 double entryPrice = position.EntryPrice;
                 double? currentSL = position.StopLoss;
-        
+
                 // Distance du prix actuel à l'entrée
                 double distanceFromEntry = position.TradeType == TradeType.Buy
                     ? currentPrice - entryPrice
                     : entryPrice - currentPrice;
-        
+
                 // Vérifie si le prix a atteint le seuil de break-even
                 bool isPastBreakEven = distanceFromEntry >= breakEvenTrigger;
-        
+
                 if (!isPastBreakEven)
                     continue;
-        
+
                 // Détermine le SL cible : break-even ou trailing
                 double targetSL;
-        
+
                 if (!currentSL.HasValue || (
                     position.TradeType == TradeType.Buy && currentSL.Value < entryPrice + breakEvenMargin - epsilon) ||
                     (position.TradeType == TradeType.Sell && currentSL.Value > entryPrice - breakEvenMargin + epsilon))
@@ -261,8 +262,8 @@ namespace cAlgo.Robots
                     targetSL = position.TradeType == TradeType.Buy
                         ? entryPrice + breakEvenMargin
                         : entryPrice - breakEvenMargin;
-        
-                    Log($"[BreakEven] Déclenché | SL={targetSL:F5} | Entry={entryPrice:F5} | Price={currentPrice:F5}", "Info");
+
+                    Log($"[BreakEven] Triggered | SL={targetSL:F5} | Entry={entryPrice:F5} | Price={currentPrice:F5}", "Info");
                 }
                 else
                 {
@@ -270,37 +271,37 @@ namespace cAlgo.Robots
                     targetSL = position.TradeType == TradeType.Buy
                         ? currentPrice - trailingDistance
                         : currentPrice + trailingDistance;
-        
+
                     // Ne pas descendre sous le break-even
                     double minSL = position.TradeType == TradeType.Buy
                         ? entryPrice + breakEvenMargin
                         : entryPrice - breakEvenMargin;
-        
+
                     if ((position.TradeType == TradeType.Buy && targetSL < minSL) ||
                         (position.TradeType == TradeType.Sell && targetSL > minSL))
                         continue;
-        
-                    Log($"[Trailing] En cours | SL={targetSL:F5} | Entry={entryPrice:F5} | Price={currentPrice:F5}", "Info");
+
+                    Log($"[Trailing] In process | SL={targetSL:F5} | Entry={entryPrice:F5} | Price={currentPrice:F5}", "Info");
                 }
-        
+
                 targetSL = NormalizePrice(targetSL, position.TradeType);
-        
+
                 // Vérifie si le SL doit être mis à jour
                 bool shouldUpdate = !currentSL.HasValue ||
                     (position.TradeType == TradeType.Buy && targetSL > currentSL.Value + epsilon) ||
                     (position.TradeType == TradeType.Sell && targetSL < currentSL.Value - epsilon);
-        
+
                 if (shouldUpdate)
                 {
                     try
                     {
                         double pipsGain = Math.Round((targetSL - entryPrice) / Symbol.PipSize, 2);
-                        Log($"[SL Update] Nouveau SL={targetSL:F5} | Gain={pipsGain} pips", "Info");
+                        Log($"[SL Update] New SL={targetSL:F5} | Gain={pipsGain} pips", "Info");
                         position.ModifyStopLossPrice(targetSL);
                     }
                     catch (Exception ex)
                     {
-                        Log($"[Erreur] Échec modification SL : {ex.Message}", "Error");
+                        Log($"[Erreur] Update failed SL : {ex.Message}", "Error");
                     }
                 }
             }
@@ -378,8 +379,6 @@ namespace cAlgo.Robots
         }
 
         // Chart display helpers
-        private const string InfoTextId = "RaymanHelper_Info";
-
         // Throttle chart updates
         private DateTime _lastChartUpdate = DateTime.MinValue;
         private readonly TimeSpan ChartUpdateInterval = TimeSpan.FromSeconds(1);
@@ -496,7 +495,7 @@ namespace cAlgo.Robots
                         // Prepare display with 2 decimals for precision
                         riskLine =
                             $"Risk: {RiskPercent:F1}% = {riskAmount:F2} {Account.Asset.Name}" +
-                            $"roundedLots: {roundedLots:F2} (min {MinLotSize})";
+                            $" | roundedLots: {roundedLots:F2} (min {MinLotSize})";
                     }
                 }
             }
