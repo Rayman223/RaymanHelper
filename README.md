@@ -32,7 +32,7 @@
 - Break-even Margin (pips): 1.2
 - Max Allowed Spread (pips): 0.4
 
-*Note: These values and the RaymanHelper EURUSD m1.cbotset file are intended for testing purposes only.*
+*Note: These values are intended for testing purposes only.*
 
 
 ### Installation and usage
@@ -43,12 +43,6 @@
 5. Adjust parameters in the robot UI and start.
 
 
-### Implementation notes
-- The robot keeps track of already-checked positions in `checkedPositions` to avoid repeated processing.
-- UpdateChartInfo is called on every tick; consider throttling (e.g. once per second) to reduce overhead.
-- ValidateParameters throws ArgumentException for inconsistent parameters; these errors are shown on the chart.
-
-
 ### Trailing stop & break-even behavior
 - `Break-even Trigger`: when a position moves in your favor by this number of pips from the entry price, the bot will attempt to move the Stop Loss to lock profit. It sets the SL to the entry price plus `Break-even Margin` for BUY positions, or entry minus `Break-even Margin` for SELL positions.
 - `Break-even Margin`: number of pips to add to the entry when moving SL to break-even. A positive margin places the SL into profit by that many pips (providing a buffer above/below entry).
@@ -57,10 +51,7 @@
 
 
 ### Suggested improvements
-- Add throttling for UpdateChartInfo.
 - Allow StopLossPips == 0 and/or TakeProfitPips == 0 to disable either (adjust MinValue accordingly).
-- Option to ignore positions from other symbols (multi-symbol handling).
-- Centralize error and log management (levels, timestamps).
 
 
 ### Limitations / risks
@@ -78,4 +69,4 @@
 
 
 ### License
-- MIT.
+- GPLv3.
